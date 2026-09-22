@@ -5,5 +5,5 @@
 // Leave them empty and the site shows travellers.json, read-only.
 window.TRIP_CONFIG = {
   supabaseUrl: "https://lqwplpsonxghiyeqhekt.supabase.co",
-  supabaseAnonKey: ""
+  supabaseAnonKey: "sb_publishable_nN_6Gk8iAvVJQ0cqlkLMRg_Ki30S6d5"
 };
