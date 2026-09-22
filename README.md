@@ -14,6 +14,9 @@ No build step. No dependencies. It is static HTML.
 | `sw.js` | Service worker — caches the app so it opens with no signal |
 | `icons/` | 192px and 512px app icons |
 | `robots.txt` | Asks search engines not to crawl the site |
+| `travellers.json` | Starting list of travellers, used until Supabase is connected |
+| `config.js` | Supabase address and public key — the only file you edit to switch on shared editing |
+| `supabase-setup.sql` | Run once in Supabase to create the shared travellers list |
 
 ## Deploy to GitHub Pages
 
@@ -69,3 +72,29 @@ Any one of these stops the site being served:
 
 Copies someone already saved, or an old snapshot on a web archive, are outside GitHub's control.
 The `noindex` tag and `robots.txt` make those far less likely.
+
+## Shared traveller editing (Supabase)
+
+Lets anyone with the trip passcode add, edit or remove travellers from the site itself.
+Every phone sees the change on its next refresh.
+
+1. Sign up at supabase.com (free) → **New project**. Pick region **Southeast Asia (Singapore)**. Save the database password somewhere safe — you won't need it for this.
+2. Open `supabase-setup.sql`. Change `CHANGE-ME-before-running` to your trip passcode — 8+ characters, not a birthday.
+3. Supabase → **SQL Editor** → **New query** → paste the whole file → **Run**. You should see "Success. No rows returned".
+4. Supabase → **Table Editor** → `travellers`. Check the nine names are there.
+5. Supabase → **Project Settings → API**. Copy the **Project URL** and the **anon public** key.
+6. On GitHub, edit `config.js` and paste them between the quotes. Commit.
+7. Open the site → Travellers tab. The status line should say *Live list*.
+8. Share the passcode in the family chat — not in the repo.
+
+**Never paste the `service_role` key anywhere in this repo.** Only the `anon` key belongs in `config.js`.
+
+To change the passcode later, run this in the SQL Editor:
+
+```sql
+update trip_settings set value = 'new-passcode' where key = 'edit_passcode';
+```
+
+Every phone will be asked for the new one the next time it tries to save.
+
+Offline, the tab shows the last list that phone saw. Editing needs a connection.

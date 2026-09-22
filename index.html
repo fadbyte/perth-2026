@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="referrer" content="no-referrer">
+<script src="./config.js"></script>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#14487f">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
@@ -347,6 +348,36 @@
   .suglist b { display: block; font-weight: 600; font-size: 12.5px; font-style: italic; }
   .suglist span { color: var(--muted); font-style: italic; }
   @media (max-width: 560px) { .daycol { flex: 0 0 84vw; } .day { flex: 0 0 auto; } }
+
+  /* Travellers */
+  .tvhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .fam h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .fam h2 span { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .person { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .person:last-child { border-bottom: 0; }
+  .avatar { flex: 0 0 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; background: var(--flight-bg); color: var(--flight-ink); }
+  .avatar.child { background: var(--ok-bg); color: var(--ok-ink); }
+  .pname { flex: 1; font-weight: 600; font-size: 14px; }
+  .pname span { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .page { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  code { font-size: 12px; background: var(--field); padding: 1px 5px; border-radius: 4px; }
+
+  /* Six tabs: let the bar scroll sideways on narrow screens */
+  .tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: 0 0 auto; white-space: nowrap; }
+  @media (max-width: 560px) { .tabs button { flex: 0 0 auto; padding: 9px 14px; } }
+
+  .tvstatus { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .tvstatus.live::before { content: "● "; color: var(--ok-ink); }
+  .tvstatus.offline::before, .tvstatus.fallback::before { content: "● "; color: var(--warn-ink); }
+  .ptools { display: flex; gap: 6px; margin-left: 4px; }
+  .pbtn { font: inherit; font-size: 12px; font-weight: 600; border: 0; border-radius: 999px; padding: 6px 11px; cursor: pointer; background: var(--flight-bg); color: var(--flight-ink); }
+  .pbtn.del { background: var(--no-bg); color: var(--no-ink); font-size: 15px; padding: 3px 10px; }
+  #tvName { flex: 3 1 150px; } #tvAge { flex: 1 1 70px; } #tvNewFam { flex: 3 1 180px; } #tvNewCode { flex: 1 1 70px; } #tvPass { flex: 3 1 180px; }
+  .tvmsg { font-size: 13px; color: var(--no-ink); min-height: 1.2em; }
+  .tvmsg.ok { color: var(--ok-ink); }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -354,6 +385,7 @@
 
   <div class="tabs" role="tablist" aria-label="Dashboard sections">
     <button role="tab" id="tab-1" aria-controls="panel-overview" aria-selected="true">Overview</button>
+    <button role="tab" id="tab-6" aria-controls="panel-travellers" aria-selected="false">Travellers</button>
     <button role="tab" id="tab-2" aria-controls="panel-maps" aria-selected="false">Maps</button>
     <button role="tab" id="tab-3" aria-controls="panel-days" aria-selected="false">Day by day</button>
     <button role="tab" id="tab-4" aria-controls="panel-money" aria-selected="false">Money</button>
@@ -366,21 +398,21 @@
     <div class="head">
       <div>
         <h1>Perth road trip</h1>
-        <div class="sub">Sun 13 – Sun 27 Dec 2026 · self-drive loop from Perth · 2 families, 8 people</div>
+        <div class="sub">Sun 13 – Sun 27 Dec 2026 · self-drive loop from Perth · <span id="tvSummary">2 families, 9 people</span></div>
       </div>
       <div class="count"><b id="days">—</b><span>days to departure</span></div>
     </div>
     <div class="facts">
-      <div class="fact">Travellers<b>4 adults, 4 kids</b></div>
+      <div class="fact">Travellers<b id="tvFact">4 adults, 5 kids</b></div>
       <div class="fact">Vehicles<b>2 SUVs — not booked</b></div>
-      <div class="fact">Stays booked<b>6 of 6 for Family 1</b></div>
+      <div class="fact">Stays booked<b>6 of 6 for Fad family</b></div>
       <div class="fact">Total driving<b>~1,830 km</b></div>
       <div class="fact">Accommodation<b>$5,184.83 SGD</b></div>
     </div>
   </div>
 
   <div class="banner">
-    <b>Two gaps before this trip is complete.</b> Family 2 has nowhere to sleep on 13, 14 and 15 Dec — the Northbridge arrival stay caps at 4 guests and covers Family 1 only. And no car hire is on record: 2 SUVs, a post-midnight pickup on 13 Dec, and a return time on 27 Dec.
+    <b>Two gaps before this trip is complete.</b> The Rafi family has nowhere to sleep on 13, 14 and 15 Dec — the Northbridge arrival stay caps at 4 guests and covers the Fad family only. And no car hire is on record: 2 SUVs, a post-midnight pickup on 13 Dec, and a return time on 27 Dec.
   </div>
 
   <div class="card">
@@ -491,7 +523,7 @@
     <div class="card">
       <h2>Still to sort</h2>
       <ul class="items">
-        <li class="open"><b>Family 2: 13, 14, 15 Dec</b><span>Nothing booked. Needs its own place near Northbridge.</span></li>
+        <li class="open"><b>Rafi family: 13, 14, 15 Dec</b><span>Nothing booked. Needs its own place near Northbridge.</span></li>
         <li class="open"><b>Car hire — 2 SUVs</b><span>No booking on record. Landing is 23:55, so confirm the desk is staffed after midnight or arrange after-hours pickup. Return time 27 Dec.</span></li>
         <li class="open"><b>16–18 Dec: Katanning or Hyden?</b><span>Katanning is booked and paid. Planning notes say Hyden / Wave Rock. Fad to confirm.</span></li>
         <li><b>Christmas food shop on 24 Dec</b><span>25 Dec closes most WA shops and supermarkets; 26 Dec runs reduced hours.</span></li>
@@ -505,6 +537,25 @@
   </p>
 
   </div><!-- /overview -->
+
+  <div class="panel" id="panel-travellers" role="tabpanel" aria-labelledby="tab-6" hidden>
+
+    <div class="card">
+      <div class="tvhead">
+        <div><h2 style="margin-bottom:2px">Who's coming</h2><p class="sub" id="tvLine">2 families · 9 travellers</p></div>
+        <div class="count"><b id="tvTotal">9</b><span>travellers</span></div>
+      </div>
+      <div class="facts" id="tvFacts"></div>
+      <p class="tvstatus" id="tvStatus"></p>
+    </div>
+
+    <div id="tvFamilies" class="panel"></div>
+
+    <div class="card" id="tvEdit"></div>
+
+    <p class="foot">Ages only, no birthdays — this page is public. Editing needs the trip passcode, which lives in the family chat.</p>
+
+  </div><!-- /travellers -->
 
   <div class="panel" id="panel-maps" role="tabpanel" aria-labelledby="tab-2">
 
@@ -598,7 +649,7 @@
               <span class="wx"><svg class="wxi" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.6" fill="#f2a33c"/><g stroke="#f2a33c" stroke-width="1.7" stroke-linecap="round"><path d="M12 2.4v2.6M12 19v2.6M2.4 12h2.6M19 12h2.6M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8"/></g></svg><b>30°</b><i>17°</i></span>
             </div>
             <div class="dcol"><span class="dtag ">Arrive</span><span class="dplace">Perth</span></div>
-            <div class="dmain"><span class="dwhere">Land Perth</span><p class="ddesc">SQ215 lands 23:55. Self check-in at Northbridge with the smart lock — no host waiting.</p><ul class="dnotes"><li>Car hire pickup runs past midnight — confirm the desk is staffed</li><li>Family 2 has nothing booked for tonight</li></ul></div>
+            <div class="dmain"><span class="dwhere">Land Perth</span><p class="ddesc">SQ215 lands 23:55. Self check-in at Northbridge with the smart lock — no host waiting.</p><ul class="dnotes"><li>Car hire pickup runs past midnight — confirm the desk is staffed</li><li>The Rafi family has nothing booked for tonight</li></ul></div>
           </div>
           <div class="sug">
             <span class="sugh">Suggestions</span>
@@ -856,7 +907,7 @@
       <h2>Not booked yet</h2>
       <div class="stayline"><span class="where">Car hire — 2 SUVs, 14 days<span>No booking on record. Budget roughly S$1,400–2,400 for two mid-size SUVs over two weeks, plus a young-driver or one-way fee if either applies.</span></span><span class="when">Shared</span></div>
       <div class="stayline"><span class="where">Fuel for the loop<span>~1,830 km each vehicle, ~3,660 km total. At 10 L/100 km and about A$1.85/L that is roughly A$680 ≈ S$580 for both cars.</span></span><span class="when">Shared</span></div>
-      <div class="stayline"><span class="where">Family 2 · 13–15 Dec accommodation<span>Nothing booked. Three nights in Perth in December will not be cheap — book early.</span></span><span class="when">R only</span></div>
+      <div class="stayline"><span class="where">Rafi family · 13–15 Dec accommodation<span>Nothing booked. Three nights in Perth in December will not be cheap — book early.</span></span><span class="when">R only</span></div>
       <p class="foot">Estimates, not quotes. Replace each line with the real figure once it is booked.</p>
     </div>
 
@@ -912,7 +963,7 @@
 
     <div class="card">
       <h2>About this dashboard</h2>
-      <p class="linknote">Built from the project knowledge files — bookings, drive legs and timing rules. Flights and stays are confirmed; car hire and Family 2's first three nights are not. Dates follow the live Airbnb app, never the confirmation emails.</p>
+      <p class="linknote">Built from the project knowledge files — bookings, drive legs and timing rules. Flights and stays are confirmed; car hire and the Rafi family's first three nights are not. Dates follow the live Airbnb app, never the confirmation emails.</p>
       <p class="foot">Works offline once the page is saved. The Google Maps buttons and any live lookup need a connection.</p>
     </div>
 
@@ -1068,6 +1119,237 @@
       try { ['perth-expenses','perth-theme','perth-tab'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
       location.reload();
     });
+  })();
+
+  (function () {
+    var FALLBACK = {"families": [{"name": "Fad Family", "code": "F", "members": [{"name": "Fad", "age": 43, "role": "adult"}, {"name": "Siti", "age": 42, "role": "adult"}, {"name": "Kyl", "age": 10, "role": "child"}, {"name": "Kyen", "age": 7, "role": "child"}]}, {"name": "Rafi Family", "code": "R", "members": [{"name": "Rafi", "age": null, "role": "adult"}, {"name": "Aishah", "age": null, "role": "adult"}, {"name": "Nureen", "age": 11, "role": "child"}, {"name": "Naura", "age": 9, "role": "child"}, {"name": "Rates", "age": 4, "role": "child"}]}]};
+    var CFG = window.TRIP_CONFIG || {};
+    var LIVE = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+    var CACHE_KEY = 'perth-travellers-cache', PASS_KEY = 'perth-edit-pass';
+    var rows = [], editingId = null, busy = false;
+
+    function $(id) { return document.getElementById(id); }
+    function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function getPass() { try { return localStorage.getItem(PASS_KEY) || ''; } catch (e) { return ''; } }
+    function setPass(v) { try { v ? localStorage.setItem(PASS_KEY, v) : localStorage.removeItem(PASS_KEY); } catch (e) {} }
+    function unlocked() { return LIVE && !!getPass(); }
+
+    function flatten(d) {
+      var out = [];
+      ((d && d.families) || []).forEach(function (f) {
+        (f.members || []).forEach(function (m, i) {
+          out.push({ id: null, family: f.name, family_code: f.code || '', name: m.name, age: m.age, role: m.role, sort: i });
+        });
+      });
+      return out;
+    }
+    function group(rs) {
+      var order = [], map = {};
+      rs.slice().sort(function (a, b) {
+        return String(a.family_code || '~').localeCompare(String(b.family_code || '~')) ||
+               String(a.family).localeCompare(String(b.family)) ||
+               ((a.sort || 0) - (b.sort || 0)) || ((a.id || 0) - (b.id || 0));
+      }).forEach(function (r) {
+        if (!map[r.family]) { map[r.family] = { name: r.family, code: r.family_code, members: [] }; order.push(map[r.family]); }
+        map[r.family].members.push(r);
+      });
+      return order;
+    }
+
+    function api(path, opts) {
+      opts = opts || {};
+      return fetch(CFG.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + path, {
+        method: opts.method || 'GET',
+        headers: (function () {
+          // New-style publishable keys (sb_publishable_…) go in apikey only;
+          // legacy anon keys are JWTs and also go in Authorization.
+          var h = { apikey: CFG.supabaseAnonKey, 'Content-Type': 'application/json' };
+          if (/^eyJ/.test(CFG.supabaseAnonKey)) h.Authorization = 'Bearer ' + CFG.supabaseAnonKey;
+          return h;
+        })(),
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+        cache: 'no-store'
+      }).then(function (r) {
+        return r.text().then(function (t) {
+          var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
+          if (!r.ok) throw new Error((j && (j.message || j.hint || j.error)) || ('HTTP ' + r.status));
+          return j;
+        });
+      });
+    }
+    function rpc(fn, args) { return api('rpc/' + fn, { method: 'POST', body: args }); }
+
+    function status(kind) {
+      var el = $('tvStatus'); if (!el) return;
+      var text = {
+        live: 'Live list — changes show on everyone’s phone.',
+        offline: 'Offline — showing the last copy this phone saw.',
+        fallback: 'Couldn’t reach the shared list — showing the built-in copy.',
+        stat: 'Read-only list. Shared editing isn’t switched on yet.'
+      }[kind] || '';
+      el.textContent = text; el.className = 'tvstatus ' + kind;
+    }
+
+    function load() {
+      if (LIVE) {
+        return api('travellers?select=id,family,family_code,name,age,role,sort&order=family_code.asc,sort.asc,id.asc')
+          .then(function (rs) {
+            if (!Array.isArray(rs)) throw new Error('Unexpected reply');
+            rows = rs;
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) {}
+            status('live'); draw();
+          })
+          .catch(function () {
+            var c = null; try { c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) {}
+            if (c && c.length) { rows = c; status('offline'); } else { rows = flatten(FALLBACK); status('fallback'); }
+            draw();
+          });
+      }
+      var done = function (d) { rows = flatten(d); status('stat'); draw(); };
+      if (location.protocol.indexOf('http') !== 0) { done(FALLBACK); return Promise.resolve(); }
+      return fetch('./travellers.json', { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+        .then(done).catch(function () { done(FALLBACK); });
+    }
+
+    function draw() {
+      var fams = group(rows);
+      var total = rows.length, kids = 0;
+      rows.forEach(function (r) { if (r.role === 'child') kids++; });
+      var adults = total - kids;
+      var fw = fams.length === 1 ? 'family' : 'families', kw = kids === 1 ? 'kid' : 'kids', aw = adults === 1 ? 'adult' : 'adults';
+      var el;
+      if ((el = $('tvSummary'))) el.textContent = fams.length + ' ' + fw + ', ' + total + ' people';
+      if ((el = $('tvFact'))) el.textContent = adults + ' ' + aw + ', ' + kids + ' ' + kw;
+      if ((el = $('tvLine'))) el.textContent = fams.length + ' ' + fw + ' · ' + adults + ' ' + aw + ', ' + kids + ' ' + kw;
+      if ((el = $('tvTotal'))) el.textContent = total;
+      if ((el = $('tvFacts'))) el.innerHTML = fams.map(function (f) {
+        return '<div class="fact">' + esc(f.name) + '<b>' + f.members.length + ' people</b></div>';
+      }).join('');
+
+      var canEdit = unlocked();
+      $('tvFamilies').innerHTML = fams.map(function (f) {
+        var list = f.members.map(function (m) {
+          var child = m.role === 'child';
+          var age = (m.age === null || m.age === undefined || m.age === '') ? '—' : esc(m.age) + ' yrs';
+          var tools = (canEdit && m.id) ?
+            '<span class="ptools"><button class="pbtn" data-edit="' + m.id + '" aria-label="Edit ' + esc(m.name) + '">Edit</button>' +
+            '<button class="pbtn del" data-del="' + m.id + '" aria-label="Remove ' + esc(m.name) + '">&times;</button></span>' : '';
+          return '<div class="person"><span class="avatar' + (child ? ' child' : '') + '">' + esc(String(m.name).charAt(0).toUpperCase()) + '</span>' +
+                 '<span class="pname">' + esc(m.name) + '<span>' + (child ? 'Child' : 'Adult') + '</span></span>' +
+                 '<span class="page">' + age + '</span>' + tools + '</div>';
+        }).join('');
+        return '<div class="card fam"><h2>' + esc(f.name) + ' <span>' +
+               (f.code ? esc(f.code) + ' · ' : '') + f.members.length + ' people</span></h2>' + list + '</div>';
+      }).join('');
+      drawEditor(fams);
+    }
+
+    function drawEditor(fams) {
+      var box = $('tvEdit'); if (!box) return;
+      if (!LIVE) {
+        box.innerHTML = '<h2>Edit travellers</h2><p class="linknote">Shared editing isn’t switched on yet. Until it is, changes are made in <code>travellers.json</code> on GitHub.</p>';
+        return;
+      }
+      if (!unlocked()) {
+        box.innerHTML = '<h2>Edit travellers</h2>' +
+          '<p class="linknote">Enter the trip passcode from the family chat. This phone will remember it.</p>' +
+          '<div class="addrow"><input id="tvPass" type="password" autocomplete="off" placeholder="Trip passcode">' +
+          '<button id="tvUnlock">Unlock</button></div><p class="tvmsg" id="tvMsg" role="status"></p>';
+        return;
+      }
+      var cur = editingId ? rows.filter(function (r) { return r.id === editingId; })[0] : null;
+      var opts = fams.map(function (f) {
+        var sel = cur ? (cur.family === f.name) : (fams[0] && f.name === fams[0].name);
+        return '<option value="' + esc(f.name) + '" data-code="' + esc(f.code || '') + '"' + (sel ? ' selected' : '') + '>' + esc(f.name) + '</option>';
+      }).join('') + '<option value="__new">New family…</option>';
+      box.innerHTML = '<h2>' + (cur ? 'Edit ' + esc(cur.name) : 'Add a traveller') + '</h2>' +
+        '<div class="addrow">' +
+          '<input id="tvName" type="text" maxlength="40" placeholder="First name" value="' + esc(cur ? cur.name : '') + '">' +
+          '<input id="tvAge" type="number" inputmode="numeric" min="0" max="120" placeholder="Age" value="' + esc(cur && cur.age != null ? cur.age : '') + '">' +
+          '<select id="tvRole"><option value="adult"' + (cur && cur.role === 'adult' ? ' selected' : '') + '>Adult</option>' +
+            '<option value="child"' + (!cur || cur.role === 'child' ? ' selected' : '') + '>Child</option></select>' +
+          '<select id="tvFam">' + opts + '</select>' +
+        '</div>' +
+        '<div class="addrow" id="tvNewFamRow" hidden>' +
+          '<input id="tvNewFam" type="text" maxlength="40" placeholder="New family name, e.g. Lee Family">' +
+          '<input id="tvNewCode" type="text" maxlength="3" placeholder="Code, e.g. L">' +
+        '</div>' +
+        '<div class="addrow"><button id="tvSave">' + (cur ? 'Save changes' : 'Add traveller') + '</button>' +
+          (cur ? '<button id="tvCancel" class="ghostbtn">Cancel</button>' : '') +
+          '<button id="tvLock" class="ghostbtn">Lock this phone</button></div>' +
+        '<p class="tvmsg" id="tvMsg" role="status"></p>';
+    }
+
+    function msg(t, ok) { var m = $('tvMsg'); if (m) { m.textContent = t; m.className = 'tvmsg' + (ok ? ' ok' : ''); } }
+
+    function save() {
+      if (busy) return;
+      var name = ($('tvName').value || '').trim();
+      var ageRaw = ($('tvAge').value || '').trim();
+      var age = ageRaw === '' ? null : parseInt(ageRaw, 10);
+      var role = $('tvRole').value;
+      var famSel = $('tvFam');
+      var family, code;
+      if (famSel.value === '__new') {
+        family = ($('tvNewFam').value || '').trim();
+        code = ($('tvNewCode').value || '').trim();
+        if (!family) return msg('Enter a name for the new family.');
+      } else {
+        family = famSel.value;
+        code = famSel.options[famSel.selectedIndex].getAttribute('data-code') || '';
+      }
+      if (!name) return msg('Enter a first name.');
+      if (ageRaw !== '' && (isNaN(age) || age < 0 || age > 120)) return msg('Age must be a number from 0 to 120, or left blank.');
+      busy = true; msg('Saving…', true);
+      var args = { p_passcode: getPass(), p_family: family, p_family_code: code, p_name: name, p_age: age, p_role: role };
+      var call = editingId ? rpc('update_traveller', Object.assign({ p_id: editingId }, args)) : rpc('add_traveller', args);
+      call.then(function () {
+        var wasEdit = !!editingId; editingId = null; busy = false;
+        return load().then(function () { msg(wasEdit ? 'Saved.' : name + ' added.', true); });
+      }).catch(function (e) {
+        busy = false;
+        if (/passcode/i.test(e.message)) { setPass(''); draw(); msg('The passcode has changed — enter the new one.'); }
+        else msg('Couldn’t save: ' + e.message);
+      });
+    }
+
+    function remove(id) {
+      var r = rows.filter(function (x) { return x.id === id; })[0]; if (!r) return;
+      if (!confirm('Remove ' + r.name + ' from the trip?')) return;
+      rpc('delete_traveller', { p_passcode: getPass(), p_id: id })
+        .then(function () { if (editingId === id) editingId = null; return load(); })
+        .then(function () { msg(r.name + ' removed.', true); })
+        .catch(function (e) { msg('Couldn’t remove: ' + e.message); });
+    }
+
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t.id === 'tvUnlock') {
+        var v = ($('tvPass').value || '').trim();
+        if (!v) return msg('Enter the passcode.');
+        msg('Checking…', true);
+        rpc('check_passcode', { p: v }).then(function (ok) {
+          if (ok === true) { setPass(v); draw(); msg('Unlocked on this phone.', true); }
+          else msg('That passcode isn’t right.');
+        }).catch(function () { msg('Couldn’t check the passcode — are you online?'); });
+      } else if (t.id === 'tvSave') { save(); }
+      else if (t.id === 'tvCancel') { editingId = null; draw(); }
+      else if (t.id === 'tvLock') { setPass(''); editingId = null; draw(); }
+      else if (t.getAttribute && t.getAttribute('data-edit')) {
+        editingId = parseInt(t.getAttribute('data-edit'), 10); draw();
+        var ed = $('tvEdit'); if (ed) ed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (t.getAttribute && t.getAttribute('data-del')) { remove(parseInt(t.getAttribute('data-del'), 10)); }
+    });
+    document.addEventListener('change', function (e) {
+      if (e.target.id === 'tvFam') { var row = $('tvNewFamRow'); if (row) row.hidden = e.target.value !== '__new'; }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target.id === 'tvPass') { var b = $('tvUnlock'); if (b) b.click(); }
+    });
+    var tab = $('tab-6'); if (tab) tab.addEventListener('click', function () { load(); });
+
+    rows = flatten(FALLBACK); draw(); load();
   })();
 </script>
 <script>
