@@ -1,0 +1,25 @@
+{
+  "families": [
+    {
+      "name": "Fad Family",
+      "code": "F",
+      "members": [
+        { "name": "Fad",   "age": 43, "role": "adult" },
+        { "name": "Siti",  "age": 42, "role": "adult" },
+        { "name": "Kyl",   "age": 10, "role": "child" },
+        { "name": "Kyen",  "age": 7,  "role": "child" }
+      ]
+    },
+    {
+      "name": "Rafi Family",
+      "code": "R",
+      "members": [
+        { "name": "Rafi",   "age": null, "role": "adult" },
+        { "name": "Aishah", "age": null, "role": "adult" },
+        { "name": "Nureen", "age": 11,   "role": "child" },
+        { "name": "Naura",  "age": 9,    "role": "child" },
+        { "name": "Rates",  "age": 4,    "role": "child" }
+      ]
+    }
+  ]
+}

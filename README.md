@@ -13,6 +13,7 @@ No build step. No dependencies. It is static HTML.
 | `manifest.json` | App name, icon and colours so it installs to the home screen |
 | `sw.js` | Service worker — caches the app so it opens with no signal |
 | `icons/` | 192px and 512px app icons |
+| `fonts/` | Source Serif 4 (SIL Open Font License) — self-hosted so it works offline |
 | `robots.txt` | Asks search engines not to crawl the site |
 | `travellers.json` | Starting list of travellers, used until Supabase is connected |
 | `config.js` | Supabase address and public key — the only file you edit to switch on shared editing |
@@ -98,3 +99,19 @@ update trip_settings set value = 'new-passcode' where key = 'edit_passcode';
 Every phone will be asked for the new one the next time it tries to save.
 
 Offline, the tab shows the last list that phone saw. Editing needs a connection.
+
+## Versions
+
+| Version | Date | What changed |
+|---|---|---|
+| 1.3 | 23 Sep 2026 | Serif font (offline), larger text, Title Case, ≡ menu + breadcrumbs, new Overview tiles, live countdown, Booked For column, Board/Calendar toggle, Costs & Finances with filters, split slider and add/edit sheet, no-lag service worker |
+| 1.2 | 23 Sep 2026 | Shared traveller editing via Supabase |
+| 1.1 | 23 Sep 2026 | Travellers tab |
+| 1.0 | 23 Sep 2026 | First live version |
+
+The version shown under Settings → About must match the latest row here.
+
+## Known limits (v1.3)
+
+- Costs & Finances saves on each phone separately. Shared sync is planned for the next version.
+- `config.js` is not included in release zips — the live copy holds the Supabase key. Never overwrite it with a blank one.
