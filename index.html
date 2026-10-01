@@ -862,6 +862,8 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="dark"]) #today .notes-card .cardhead h2 { background: rgba(255,255,255,0.08); } }
   #today .fxinfo .cardhead h2 { background: var(--field); color: var(--muted); }
 
+  .inlinelink { font: inherit; font-family: var(--serif); color: var(--flight-ink); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+
 </style><script src="./config.js"></script><script>
 // Perth Road Trip — all trip data lives here. Edit this file, never engine.js.
 window.TRIP = {
@@ -1395,8 +1397,9 @@ window.TRIP = {
       // Card 5 — FX (info)
       h += fxCard();
     } else if (pre) {
-      var d0 = T.days[0];
-      h += '<div class="now-label">First up · ' + fmtDate(start) + '</div><div class="card now-card"><div class="cardhead"><h2>Day Overview</h2></div><p class="now-where">' + esc(d0.where) + '</p><p class="now-sub" style="margin-top:6px">' + esc(d0.desc) + '</p><button class="linkbtn" data-screen="plan">See the full plan →</button></div>';
+      // Before the trip: no "today" exists yet. Prep-focused screen — getting ready, not day one.
+      h += '<div class="now-label">Getting Ready</div>';
+      h += '<div class="card"><p class="now-sub">Trip starts <b>' + fmtDate(start) + '</b>. Add ideas and jot down anything to sort before you go — the day-by-day plan is on the <button class="inlinelink" data-screen="plan">Plan</button> tab.</p></div>';
       h += suggestionsCard(null);
       h += notesCard(null);
       h += fxCard();
