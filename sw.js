@@ -1,4 +1,4 @@
-var CACHE = 'perth-trip-v7';
+var CACHE = 'perth-trip-v8';
 var FILES = ['./', './index.html', './config.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', function (e) {
