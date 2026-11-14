@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><!-- PERTH-DASH v4.7 --><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><title>Perth Road Trip — Design B</title><style>
+<html lang="en"><head><!-- PERTH-DASH v4.8 --><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><title>Perth Road Trip — Design B</title><style>
 
 
 
@@ -1273,7 +1273,7 @@
   .cvsplit { font-family: var(--sans); font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 4px; }
   .cvrow .fslink { color: var(--flight-ink); text-decoration: none; }
 
-.fcdot{display:inline-block;width:9px;height:9px;border-radius:50%;border:0;padding:0;margin-left:8px;vertical-align:middle;cursor:pointer;box-shadow:0 0 0 2px rgba(0,0,0,.04);}.fcdot.ok{background:#2e9e5b;}.fcdot.exp{background:#c0392b;}.fccap{margin-top:3px;font-size:11px;color:#6b7280;}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .fccap{color:#9aa4b2;}}:root[data-theme="dark"] .fccap{color:#9aa4b2;}.mapframe{width:100%;height:300px;border:0;border-radius:12px;display:block;}.mapslot{overflow:hidden;}.mapslotframe{width:100%;height:240px;border:0;border-radius:10px;margin-top:8px;display:block;}.mapbtn{margin-right:6px;}</style><script src="./config.js"></script><script>
+.fcdot{display:inline-block;width:9px;height:9px;border-radius:50%;border:0;padding:0;margin-left:8px;vertical-align:middle;cursor:pointer;box-shadow:0 0 0 2px rgba(0,0,0,.04);}.fcdot.ok{background:#2e9e5b;}.fcdot.exp{background:#c0392b;}.fccap{margin-top:3px;font-size:11px;color:#6b7280;}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .fccap{color:#9aa4b2;}}:root[data-theme="dark"] .fccap{color:#9aa4b2;}.mapframe{width:100%;height:300px;border:0;border-radius:12px;display:block;}.mapslot{overflow:hidden;}.maproute{width:100%;height:80vh;border:0;border-radius:12px;display:block;margin-bottom:10px;}.mapslotframe{width:100%;height:60vh;border:0;border-radius:10px;margin-top:8px;display:block;}.mapbtn{margin-right:6px;}</style><script src="./config.js"></script><script>
 
 
 
@@ -1865,9 +1865,8 @@ window.TRIP = {
     var h = '<div class="panel" id="panel-maps">';
     if (M.embedUrl) {
       h += '<div class="card"><h2>' + esc(M.imageTitle || 'The Route') + '</h2>' +
-        '<button type="button" class="btn wide mapbtn" data-open="Open interactive map" data-embed="' + esc(M.embedUrl) + '" onclick="mapToggle(event,this)">Open interactive map</button>' +
-        '<div class="mapslot" hidden></div>' +
-        '<p class="foot">Live Google Map · pan, zoom, tap for directions. Takes a few seconds to draw the full 5-stop route.</p></div>';
+        '<iframe class="maproute" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="' + esc(M.embedUrl) + '"></iframe>' +
+        '<p class="foot">Live Google Map · pan and zoom, or tap a pin for details.</p></div>';
     }
     if (M.loopUrl) h += '<div class="card"><h2>' + esc(M.loopTitle || 'The Whole Route') + '</h2>' + (M.loopNote ? '<p class="linknote">' + esc(M.loopNote) + '</p>' : '') + '<a class="btn wide" target="_blank" rel="noopener" href="' + esc(M.loopUrl) + '">Open the full route in Google Maps</a></div>';
     if (M.stays && M.stays.length) h += '<div class="card"><h2>Our Stays</h2>' + M.stays.map(function (s) {
