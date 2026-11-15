@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>URL Scraper</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #fff; --ink: #1c1d1f; --muted: #6b6f76; --line: #e2e0d8;
+    --accent: #0b6e4f; --accent-ink: #fff; --warn: #a15c00; --bad: #b3261e; --ok: #0b6e4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151618; --panel: #1e2023; --ink: #eceae4; --muted: #9a9ea6; --line: #33363b;
+      --accent: #4cc29a; --accent-ink: #0d1512; --warn: #e0a348; --bad: #f2867f; --ok: #4cc29a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  p { margin: 0 0 10px; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  textarea, input[type=text], select {
+    width: 100%; background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
+  textarea { resize: vertical; }
+  label { display: block; font-weight: 600; font-size: 13px; margin: 0 0 4px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  button, .btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.small { padding: 2px 8px; font-size: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .bookmarklet { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; cursor: grab; }
+  .method { display: none; margin-top: 12px; }
+  .method.on { display: block; }
+  ol { margin: 0 0 10px; padding-left: 20px; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+  th { background: var(--bg); position: sticky; top: 0; font-size: 12px; color: var(--muted); }
+  td.wrap { white-space: normal; min-width: 220px; }
+  tr:last-child td { border-bottom: 0; }
+  .st { font-weight: 600; }
+  .st.done { color: var(--ok); } .st.error { color: var(--bad); } .st.pending { color: var(--muted); } .st.working { color: var(--warn); }
+  #status { font-size: 14px; }
+  dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); width: min(640px, 92vw); padding: 16px; }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  details summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+  code { font: 12px ui-monospace, Menlo, Consolas, monospace; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>URL Scraper</h1>
+  <p class="sub">Paste a list of URLs, pull the fields you want from each page, export as CSV. Tuned for sgCarMart used-car pages; works on other sites with custom fields.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <label for="urls">URLs (one per line)</label>
+      <textarea id="urls" rows="9" spellcheck="false"></textarea>
+      <p class="hint" style="margin-top:6px">Listing/search pages are expanded: every car link found on them is added to the queue.</p>
+      <label style="font-weight:400"><input type="checkbox" id="follow" checked> Follow links found on listing pages</label>
+    </section>
+
+    <section class="panel">
+      <label for="fields">Fields to extract (one per line)</label>
+      <textarea id="fields" rows="9" spellcheck="false"></textarea>
+      <details style="margin-top:6px">
+        <summary>Field syntax</summary>
+        <p class="hint" style="margin-top:6px">
+          <code>Name = Label | Other label</code> finds that label on the page and takes the text right after it.<br>
+          <code>Name = css: h1.title</code> takes the text of a CSS selector (<code>css: a.dealer @href</code> for an attribute).<br>
+          <code>Name = re: (\d+) km</code> runs a regex over the page text (first capture group).<br>
+          <code>Name = meta: og:title</code> reads a meta tag. &nbsp;<code>Name = jsonld: offers.price</code> reads JSON-LD.
+        </p>
+        <label for="linkre" style="margin-top:8px">Link pattern for listing pages (regex on href)</label>
+        <input type="text" id="linkre" spellcheck="false">
+        <label for="listre" style="margin-top:8px">A URL is a listing page if it matches</label>
+        <input type="text" id="listre" spellcheck="false">
+      </details>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>How to load the pages</h2>
+    <p class="hint">A web page isn't allowed to read another site's pages directly, so pick one of these ways around it.</p>
+    <select id="method" style="max-width:520px">
+      <option value="tab">Open each page in my browser + bookmarklet (most reliable)</option>
+      <option value="proxy">Fetch in the background through a CORS proxy (fully automatic)</option>
+    </select>
+
+    <div class="method" id="m-tab">
+      <ol>
+        <li>Drag this button to your bookmarks bar (once): <a class="btn bookmarklet" id="bm" href="#">Send page to scraper</a></li>
+        <li>Press <b>Start</b>. The first URL opens in a new window.</li>
+        <li>When the page has loaded, click the bookmark. The data is sent back here and the window moves on to the next URL by itself.</li>
+      </ol>
+      <p class="hint">The page loads in your own browser, so it behaves exactly like a normal visit. If the bookmark says "Copied", use the Paste button on that row instead.</p>
+    </div>
+
+    <div class="method" id="m-proxy">
+      <label for="proxy">Proxy</label>
+      <select id="proxy" style="max-width:520px">
+        <option value="https://corsproxy.io/?url={url}">corsproxy.io</option>
+        <option value="https://api.allorigins.win/raw?url={url}">allorigins.win</option>
+        <option value="https://api.codetabs.com/v1/proxy/?quest={url}">codetabs.com</option>
+        <option value="{raw}">None (direct — needs a CORS-unblock browser extension)</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <input type="text" id="proxyCustom" placeholder="https://my-proxy.example/?url={url}" style="max-width:520px;margin-top:6px;display:none">
+      <div class="row" style="margin-top:8px">
+        <label for="delay" style="margin:0;font-weight:400">Pause between pages (seconds)</label>
+        <input type="text" id="delay" value="2" style="width:60px">
+      </div>
+      <p class="hint" style="margin-top:6px">Public proxies see the URLs you fetch and are often blocked by sites with bot protection. If rows come back "blocked", switch to the bookmarklet method.</p>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="start">Start</button>
+      <button id="stop" disabled>Stop</button>
+      <span id="status" class="hint"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0">Results <span id="count" class="hint"></span></h2>
+      <div class="row">
+        <button id="csv">Download CSV</button>
+        <button id="copy">Copy for Sheets</button>
+        <button id="json">Download JSON</button>
+        <button id="reparse" title="Re-run field extraction on pages already loaded">Re-extract</button>
+        <button id="clear">Clear</button>
+      </div>
+    </div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+</main>
+
+<dialog id="pasteDlg">
+  <h2>Paste page source</h2>
+  <p class="hint">Open the page, view source (Ctrl+U / ⌥⌘U), select all, copy, and paste here. Text copied by the bookmarklet works too.</p>
+  <textarea id="pasteBox" rows="10" spellcheck="false"></textarea>
+  <div class="row" style="margin-top:10px;justify-content:flex-end">
+    <button id="pasteCancel">Cancel</button>
+    <button class="primary" id="pasteOk">Extract</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const LS = 'url-scraper-v1';
+
+const DEFAULT_URLS = [
+  'https://www.sgcarmart.com/used-cars/listing?q=model+y&pr2=150000&avl=a&ord=PRC_DESC',
+  'https://www.sgcarmart.com/used-cars/info/tesla-model-y-electric-1549909?dl=3133',
+  'https://www.sgcarmart.com/used-cars/info/tesla-model-y-electric-1551688?dl=4869',
+  'https://www.sgcarmart.com/used-cars/info/tesla-model-y-electric-1533400?dl=3133',
+  'https://www.sgcarmart.com/used-cars/info/tesla-model-y-electric-1527209?dl=4857',
+].join('\n');
+
+const DEFAULT_FIELDS = [
+  'Title = css: h1',
+  'Price = Price | Asking Price',
+  'Depreciation = Depreciation | Depre',
+  'Reg Date = Reg Date | Registration Date | Registered',
+  'Mileage = Mileage',
+  'Owners = No. of Owners | Owners | Number of Owners',
+  'COE = COE',
+  'OMV = OMV',
+  'ARF = ARF',
+  'Dereg Value = Dereg Value | Deregistration Value',
+  'Road Tax = Road Tax',
+  'Manufactured = Manufactured | Manufactured Year',
+  'Power = Power',
+  'Transmission = Transmission',
+  'Curb Weight = Curb Weight | Kerb Weight',
+  'Vehicle Type = Type of Vehicle | Vehicle Type',
+  'Posted = Posted on | Posted | Updated on',
+].join('\n');
+
+const DEFAULT_LINKRE = '/used-cars/info/[^/?#"\']*-\\d+';
+const DEFAULT_LISTRE = '/listing';
+
+// ---------- state ----------
+let items = [];          // {url, status, msg, data, html, kind}
+let running = false, win = null, waiting = null, nudge = null;
+
+function save() {
+  const slim = items.map(({ html, ...r }) => r);
+  const cfg = { urls: $('urls').value, fields: $('fields').value, method: $('method').value,
+    proxy: $('proxy').value, proxyCustom: $('proxyCustom').value, delay: $('delay').value,
+    follow: $('follow').checked, linkre: $('linkre').value, listre: $('listre').value };
+  try { localStorage.setItem(LS, JSON.stringify({ cfg, items: slim })); } catch (e) {}
+}
+function load() {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) {}
+  const c = s.cfg || {};
+  $('urls').value = c.urls ?? DEFAULT_URLS;
+  $('fields').value = c.fields ?? DEFAULT_FIELDS;
+  $('method').value = c.method || 'tab';
+  $('proxy').value = c.proxy || $('proxy').options[0].value;
+  $('proxyCustom').value = c.proxyCustom || '';
+  $('delay').value = c.delay ?? '2';
+  $('follow').checked = c.follow ?? true;
+  $('linkre').value = c.linkre ?? DEFAULT_LINKRE;
+  $('listre').value = c.listre ?? DEFAULT_LISTRE;
+  items = (s.items || []).map(r => r.status === 'working' ? { ...r, status: 'pending' } : r);
+}
+
+// ---------- field config ----------
+function parseFields() {
+  return $('fields').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const i = l.indexOf('=');
+    const name = (i < 0 ? l : l.slice(0, i)).trim();
+    const spec = (i < 0 ? l : l.slice(i + 1)).trim();
+    const m = spec.match(/^(css|re|meta|jsonld):\s*(.*)$/i);
+    if (m) return { name, type: m[1].toLowerCase(), arg: m[2].trim() };
+    return { name, type: 'label', labels: spec.split('|').map(norm).filter(Boolean) };
+  }).filter(f => f.name);
+}
+const norm = s => s.toLowerCase().replace(/\s+/g, ' ').replace(/[:：]\s*$/, '').trim();
+const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+
+// ---------- extraction ----------
+function tokens(doc) {
+  const out = [];
+  if (!doc.body) return out;
+  const skip = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'OPTION']);
+  const w = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())) {
+    let p = n.parentNode, bad = false;
+    while (p && p !== doc.body) { if (skip.has(p.nodeName.toUpperCase())) { bad = true; break; } p = p.parentNode; }
+    if (bad) continue;
+    const t = clean(n.nodeValue);
+    if (t) out.push(t);
+  }
+  return out;
+}
+
+function jsonld(doc) {
+  const out = [];
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
+    try {
+      const j = JSON.parse(s.textContent);
+      (Array.isArray(j) ? j : j['@graph'] || [j]).forEach(x => out.push(x));
+    } catch (e) {}
+  });
+  return out;
+}
+function dig(obj, path) {
+  return path.split('.').reduce((o, k) => {
+    if (o == null) return o;
+    if (Array.isArray(o) && !/^\d+$/.test(k)) o = o[0];
+    return o == null ? o : o[k];
+  }, obj);
+}
+
+function extract(doc, fields) {
+  const toks = tokens(doc);
+  const text = toks.join('\n');
+  const allLabels = new Set(fields.flatMap(f => f.labels || []));
+  const ld = jsonld(doc);
+  const data = {};
+  for (const f of fields) {
+    let v = '';
+    try {
+      if (f.type === 'css') {
+        const m = f.arg.match(/^(.*?)\s*@([\w-]+)$/);
+        const el = doc.querySelector(m ? m[1] : f.arg);
+        if (el) v = m ? el.getAttribute(m[2]) : el.textContent;
+      } else if (f.type === 're') {
+        const m = text.match(new RegExp(f.arg, 'i'));
+        if (m) v = m[1] ?? m[0];
+      } else if (f.type === 'meta') {
+        const el = doc.querySelector(`meta[property="${f.arg}"],meta[name="${f.arg}"]`);
+        if (el) v = el.getAttribute('content');
+      } else if (f.type === 'jsonld') {
+        for (const o of ld) { const x = dig(o, f.arg); if (x != null && typeof x !== 'object') { v = String(x); break; } }
+      } else {
+        v = byLabel(toks, f.labels, allLabels);
+      }
+    } catch (e) { v = ''; }
+    data[f.name] = clean(v);
+  }
+  // Fallbacks for the common fields when the page has no visible label for them
+  const has = k => k in data;
+  if (has('Title') && !data.Title)
+    data.Title = clean(doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.title);
+  if (has('Price') && !data.Price) {
+    let p = '';
+    for (const o of ld) { const x = dig(o, 'offers.price'); if (x != null) { p = '$' + Number(x).toLocaleString('en-US'); break; } }
+    data.Price = p || toks.find(t => /^(S?\$)\s?\d{1,3}(,\d{3})+$/.test(t)) || '';
+  }
+  return data;
+}
+
+function byLabel(toks, labels, allLabels) {
+  const junk = /^[:：\-–—|•·]+$/;
+  for (let i = 0; i < toks.length; i++) {
+    const t = norm(toks[i]);
+    for (const lab of labels) {
+      if (t === lab) {
+        for (let j = i + 1; j < Math.min(i + 4, toks.length); j++) {
+          if (junk.test(toks[j])) continue;
+          if (allLabels.has(norm(toks[j]))) break;
+          return toks[j].replace(/^[:：]\s*/, '');
+        }
+      } else if (t.startsWith(lab) && toks[i].length < lab.length + 60) {
+        // "Mileage: 23,000 km" or "Depreciation $15,200 /yr" in a single text node
+        const rest = toks[i].slice(lab.length);
+        const m = rest.match(/^\s*[:：]\s*(\S.*)$/) || rest.match(/^\s+((?:S?\$|\d).*)$/);
+        if (m) return m[1];
+      }
+    }
+  }
+  return '';
+}
+
+function isBlocked(doc, html) {
+  const t = (doc.title || '').toLowerCase();
+  if (/just a moment|attention required|access denied|are you a robot|captcha/.test(t)) return true;
+  return html.length < 6000 && /cf-chl|challenge-platform|captcha|access denied/i.test(html);
+}
+
+const idOf = u => (u.match(/-(\d{5,})(?:[/?#]|$)/) || [])[1] || '';
+const keyOf = u => idOf(u) || u.replace(/#.*$/, '');
+
+function findLinks(doc, html, base) {
+  let re;
+  try { re = new RegExp($('linkre').value || DEFAULT_LINKRE); } catch (e) { re = new RegExp(DEFAULT_LINKRE); }
+  const seen = new Map();
+  const add = h => {
+    let u; try { u = new URL(h.replace(/&amp;/g, '&').replace(/\\u0026/g, '&').replace(/\\\//g, '/'), base).href; } catch (e) { return; }
+    if (!/^https?:/.test(u) || !re.test(u)) return;
+    const k = keyOf(u);
+    if (!seen.has(k) || u.length > seen.get(k).length) seen.set(k, u);
+  };
+  doc.querySelectorAll('a[href]').forEach(a => add(a.getAttribute('href')));
+  if (!seen.size) { // links may only exist inside embedded JSON
+    const g = new RegExp('(?:https?:)?[\\w./\\\\-]*' + re.source + '[^"\'\\s<>\\\\]*', 'g');
+    (html.match(g) || []).forEach(add);
+  }
+  return [...seen.values()];
+}
+
+function processPage(item, html, finalUrl) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  if (isBlocked(doc, html)) { item.status = 'error'; item.msg = 'Blocked by the site (bot check) — use the bookmarklet method'; return; }
+  item.html = html;
+  let listRe; try { listRe = new RegExp($('listre').value || DEFAULT_LISTRE); } catch (e) { listRe = /\/listing/; }
+  if (listRe.test(item.url)) {
+    const links = findLinks(doc, html, finalUrl || item.url);
+    item.kind = 'list';
+    item.data = { Title: clean(doc.title) };
+    let added = 0;
+    if ($('follow').checked) {
+      const have = new Set(items.map(r => keyOf(r.url)));
+      for (const u of links) if (!have.has(keyOf(u))) { items.push({ url: u, status: 'pending', from: item.url }); have.add(keyOf(u)); added++; }
+    }
+    item.status = links.length ? 'done' : 'error';
+    item.msg = links.length ? `Listing page: ${links.length} links found, ${added} added to queue`
+      : 'Listing page: no matching links found (page may load results with JavaScript — use the bookmarklet method)';
+    return;
+  }
+  item.kind = 'page';
+  item.data = extract(doc, parseFields());
+  const filled = Object.values(item.data).filter(Boolean).length;
+  item.status = filled ? 'done' : 'error';
+  item.msg = filled ? '' : 'Page loaded but no fields matched';
+}
+
+// ---------- queue ----------
+function syncQueue() {
+  const urls = $('urls').value.split('\n').map(s => s.trim().replace(/^\d+[.)]\s*/, '')).filter(s => /^https?:\/\//i.test(s));
+  const have = new Set(items.map(r => r.url));
+  for (const u of urls) if (!have.has(u)) { items.push({ url: u, status: 'pending' }); have.add(u); }
+}
+const nextPending = () => items.find(r => r.status === 'pending');
+const setStatus = t => { $('status').textContent = t; };
+
+function setRunning(on) {
+  running = on;
+  $('start').disabled = on; $('stop').disabled = !on;
+  if (!on) { waiting = null; clearTimeout(nudge); }
+}
+
+function finish(msg) {
+  setRunning(false);
+  if (win && !win.closed) try { win.close(); } catch (e) {}
+  win = null;
+  setStatus(msg || 'Finished.');
+  render(); save();
+}
+
+// --- method: tab + bookmarklet ---
+function tabStep(fromClick) {
+  const it = nextPending();
+  if (!it) return finish(doneMsg());
+  it.status = 'working'; waiting = it; render();
+  if (win && !win.closed) { try { win.location.href = it.url; } catch (e) { win = null; } }
+  if (!win || win.closed) {
+    win = window.open(it.url, 'scraperWin', 'width=1100,height=800');
+    if (!win) { it.status = 'pending'; setRunning(false); render();
+      return setStatus(fromClick ? 'Your browser blocked the pop-up. Allow pop-ups for this page, then press Start.' : 'The scraping window was closed. Press Start to continue.'); }
+  }
+  setStatus(`Waiting for you to click the "Send page to scraper" bookmark on: ${it.url}`);
+}
+
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.type !== 'scraper-page' || typeof d.html !== 'string') return;
+  let it = waiting;
+  if (!it) it = items.find(r => keyOf(r.url) === keyOf(d.url || ''));
+  if (!it) { syncQueue(); it = { url: d.url, status: 'pending' }; items.push(it); }
+  processPage(it, d.html, d.url);
+  render(); save();
+  if (running && $('method').value === 'tab') { waiting = null; nudge = setTimeout(() => tabStep(false), 600); }
+});
+
+// --- method: proxy ---
+async function proxyRun() {
+  let tpl = $('proxy').value === 'custom' ? $('proxyCustom').value.trim() : $('proxy').value;
+  if (!tpl) return finish('Enter a custom proxy URL containing {url}.');
+  const delay = Math.max(0, parseFloat($('delay').value) || 0) * 1000;
+  let it, first = true;
+  while (running && (it = nextPending())) {
+    if (!first && delay) await new Promise(r => setTimeout(r, delay));
+    first = false;
+    if (!running) break;
+    it.status = 'working'; render(); setStatus('Fetching ' + it.url);
+    try {
+      const target = tpl.replace('{url}', encodeURIComponent(it.url)).replace('{raw}', it.url);
+      const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
+      const res = await fetch(target, { signal: ctl.signal, credentials: 'omit' });
+      clearTimeout(to);
+      const html = await res.text();
+      if (!res.ok && html.length < 6000) throw new Error('HTTP ' + res.status);
+      processPage(it, html, it.url);
+    } catch (e) {
+      it.status = 'error';
+      it.msg = e.name === 'AbortError' ? 'Timed out' : e instanceof TypeError ? 'Fetch failed (proxy down or request blocked)' : String(e.message || e);
+    }
+    render(); save();
+  }
+  finish(running ? doneMsg() : 'Stopped.');
+}
+
+function doneMsg() {
+  const ok = items.filter(r => r.status === 'done' && r.kind !== 'list').length;
+  const bad = items.filter(r => r.status === 'error').length;
+  return `Finished: ${ok} page${ok === 1 ? '' : 's'} scraped` + (bad ? `, ${bad} failed (use Retry or Paste on those rows).` : '.');
+}
+
+// ---------- output ----------
+function columns() {
+  const names = parseFields().map(f => f.name);
+  for (const r of items) if (r.kind === 'page' && r.data) for (const k of Object.keys(r.data)) if (!names.includes(k)) names.push(k);
+  return names;
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function render() {
+  const cols = columns();
+  let h = '<thead><tr><th>#</th><th>Status</th><th>ID</th>' + cols.map(c => `<th>${esc(c)}</th>`).join('') + '<th>URL</th><th></th></tr></thead><tbody>';
+  if (!items.length) h += `<tr><td colspan="${cols.length + 5}" class="hint">Nothing yet. Add URLs above and press Start.</td></tr>`;
+  items.forEach((r, i) => {
+    const label = { pending: 'Queued', working: 'Loading…', done: r.kind === 'list' ? 'Listing' : 'Done', error: 'Failed' }[r.status];
+    h += `<tr><td>${i + 1}</td><td class="st ${r.status}">${label}</td><td>${esc(idOf(r.url))}</td>`;
+    if (r.kind === 'page' && r.status === 'done') h += cols.map(c => `<td>${esc(r.data?.[c])}</td>`).join('');
+    else h += `<td class="wrap hint" colspan="${cols.length}">${esc(r.msg || '')}</td>`;
+    h += `<td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60))}</a></td>`;
+    h += `<td><button class="small" data-act="retry" data-i="${i}">Retry</button> <button class="small" data-act="paste" data-i="${i}">Paste</button> <button class="small" data-act="del" data-i="${i}" aria-label="Remove row">✕</button></td></tr>`;
+  });
+  $('tbl').innerHTML = h + '</tbody>';
+  const n = items.filter(r => r.kind === 'page' && r.status === 'done').length;
+  $('count').textContent = items.length ? `(${n} scraped / ${items.length} in queue)` : '';
+}
+
+function rows() {
+  const cols = columns();
+  const out = [['ID', ...cols, 'URL']];
+  for (const r of items) if (r.kind === 'page' && r.status === 'done') out.push([idOf(r.url), ...cols.map(c => r.data[c] ?? ''), r.url]);
+  return out;
+}
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+// ---------- wiring ----------
+const BM = "javascript:(function(){var d={type:'scraper-page',url:location.href,html:document.documentElement.outerHTML};" +
+  "if(window.opener&&!window.opener.closed){window.opener.postMessage(d,'*')}" +
+  "else{var s=JSON.stringify(d);(navigator.clipboard?navigator.clipboard.writeText(s):Promise.reject()).then(function(){alert('Copied. Go back to the scraper, click Paste on this row and paste.')},function(){prompt('Copy this, then use Paste in the scraper:',s)})}})()";
+
+function showMethod() {
+  $('m-tab').classList.toggle('on', $('method').value === 'tab');
+  $('m-proxy').classList.toggle('on', $('method').value === 'proxy');
+  $('proxyCustom').style.display = $('proxy').value === 'custom' ? '' : 'none';
+}
+
+$('start').onclick = () => {
+  syncQueue();
+  if (!nextPending()) { render(); return setStatus(items.length ? 'Nothing queued. Use Retry on a row, or Clear to start over.' : 'Add at least one URL.'); }
+  setRunning(true); save(); render();
+  if ($('method').value === 'tab') tabStep(true); else proxyRun();
+};
+$('stop').onclick = () => {
+  items.forEach(r => { if (r.status === 'working') r.status = 'pending'; });
+  if ($('method').value === 'tab') finish('Stopped.'); else { running = false; setStatus('Stopping…'); }
+};
+$('clear').onclick = () => { if (!items.length || confirm('Remove all results and the queue?')) { items = []; render(); save(); setStatus(''); } };
+$('reparse').onclick = () => {
+  let n = 0;
+  for (const r of items) if (r.html && r.kind === 'page') { processPage(r, r.html, r.url); n++; }
+  render(); save();
+  setStatus(n ? `Re-extracted ${n} page(s) with the current fields.` : 'No loaded pages in memory — pages are kept only until this tab is reloaded.');
+};
+$('csv').onclick = () => {
+  const q = v => /[",\n]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+  download(`scrape-${stamp()}.csv`, '﻿' + rows().map(r => r.map(q).join(',')).join('\r\n'), 'text/csv');
+};
+$('json').onclick = () => download(`scrape-${stamp()}.json`,
+  JSON.stringify(items.filter(r => r.kind === 'page' && r.status === 'done').map(r => ({ id: idOf(r.url), url: r.url, ...r.data })), null, 2), 'application/json');
+$('copy').onclick = async () => {
+  const t = rows().map(r => r.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+  try { await navigator.clipboard.writeText(t); setStatus('Copied — paste into Google Sheets or Excel.'); }
+  catch (e) { setStatus('Could not access the clipboard; use Download CSV instead.'); }
+};
+
+let pasteFor = null;
+$('tbl').onclick = e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const r = items[+b.dataset.i]; if (!r) return;
+  if (b.dataset.act === 'del') { items.splice(+b.dataset.i, 1); }
+  if (b.dataset.act === 'retry') { r.status = 'pending'; r.msg = ''; setStatus('Queued again — press Start.'); }
+  if (b.dataset.act === 'paste') { pasteFor = r; $('pasteBox').value = ''; $('pasteDlg').showModal(); return; }
+  render(); save();
+};
+$('pasteCancel').onclick = () => $('pasteDlg').close();
+$('pasteOk').onclick = () => {
+  let html = $('pasteBox').value, url = pasteFor.url;
+  if (!html.trim()) return;
+  try { const j = JSON.parse(html); if (j && typeof j.html === 'string') { html = j.html; url = j.url || url; } } catch (e) {}
+  processPage(pasteFor, html, url);
+  $('pasteDlg').close(); render(); save();
+};
+
+['urls', 'fields', 'method', 'proxy', 'proxyCustom', 'delay', 'follow', 'linkre', 'listre'].forEach(id =>
+  $(id).addEventListener('change', () => { showMethod(); save(); if (id === 'fields') render(); }));
+
+load();
+$('bm').href = BM;
+$('bm').onclick = e => { e.preventDefault(); setStatus('Drag that button to your bookmarks bar — clicking it here does nothing.'); };
+showMethod(); render();
+})();
+</script>
+</body>
+</html>
