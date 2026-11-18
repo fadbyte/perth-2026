@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><!-- PERTH-DASH v4.8 --><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><title>Perth Road Trip — Design B</title><style>
+<html lang="en"><head><!-- PERTH-DASH v5.1 --><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><title>Perth Road Trip — Design B</title><style>
 
 
 
@@ -1289,6 +1289,7 @@
 
 
 
+
 // Perth Road Trip — all trip data lives here. Edit this file, never engine.js.
 window.TRIP = {
   id: 'perth-2026',
@@ -1486,6 +1487,7 @@ window.TRIP = {
 
 
 
+
 </script></head><body><script>
 
 
@@ -1502,7 +1504,8 @@ window.TRIP = {
 
 
 
-/* Trip Dashboard engine — renders everything from window.TRIP (trip.js)
+
+/* Trip Dashboard engine v5.1 — renders everything from window.TRIP (trip.js)
    and window.TRIP_CONFIG (config.js). No build step. ES5-safe. */
 (function () {
   'use strict';
@@ -1515,6 +1518,89 @@ window.TRIP = {
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function store(k, v) { try { v == null ? localStorage.removeItem(KEY(k)) : localStorage.setItem(KEY(k), v); } catch (e) {} }
   function read(k) { try { return localStorage.getItem(KEY(k)); } catch (e) { return null; } }
+
+  // ---- Supabase shared lists (Travellers has its own copy; Notes uses these) ----
+  var SB_LIVE = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+  function sbApi(path, opts) {
+    opts = opts || {}; var h = { apikey: CFG.supabaseAnonKey, 'Content-Type': 'application/json' };
+    if (/^eyJ/.test(CFG.supabaseAnonKey)) h.Authorization = 'Bearer ' + CFG.supabaseAnonKey;
+    return fetch(CFG.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + path, { method: opts.method || 'GET', headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: 'no-store' })
+      .then(function (r) { return r.text().then(function (t) { var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {} if (!r.ok) throw new Error((j && (j.message || j.hint || j.error)) || ('HTTP ' + r.status)); return j; }); });
+  }
+  function sbRpc(fn, args) { return sbApi('rpc/' + fn, { method: 'POST', body: args }); }
+  function editPass() { return read('edit-pass') || ''; }
+  var NOTES = null; // loaded shared notes; null until first load
+  function cachedNotes() { try { return JSON.parse(read('notes-cache') || 'null'); } catch (e) { return null; } }
+  function notesList() {
+    if (SB_LIVE) return NOTES || cachedNotes() || [];
+    try { return ideaStore().notes || []; } catch (e) { return []; }
+  }
+  function canEditNotes() { return SB_LIVE ? !!editPass() : true; }
+  function notesLoad() {
+    if (!SB_LIVE) { refreshPlanNotes(); return Promise.resolve(); }
+    return sbApi('notes?select=id,title,detail,note_date,importance,author&trip=eq.' + encodeURIComponent(T.id) + '&order=note_date.asc,id.desc')
+      .then(function (rs) { if (!Array.isArray(rs)) throw new Error('bad'); NOTES = rs.map(function (r) { return { id: r.id, text: r.title, detail: r.detail, date: r.note_date || '', prio: r.importance || 'normal', who: r.author || '' }; }); var RK = { high: 0, normal: 1, low: 2 }; NOTES.sort(function (a, b) { return (RK[a.prio] - RK[b.prio]) || ((a.date || '9') < (b.date || '9') ? -1 : (a.date || '9') > (b.date || '9') ? 1 : 0); }); try { store('notes-cache', JSON.stringify(NOTES)); } catch (e) {} refreshPlanNotes(); })
+      .catch(function () { if (NOTES == null) NOTES = cachedNotes() || []; refreshPlanNotes(); });
+  }
+  // ---- Shared trip content (day plans, bookings, banner, spending) lives in Supabase.
+  // The app shows the last copy it saw (works offline) and refreshes in the background.
+  var EXP = null; // shared spending rows, null until loaded
+  var EXP_SELECT = 'id,name,place,note,line2,cat,amt,cur,who,f,paid,ref,url';
+  function expFromDb(r) { return { id: String(r.id), name: r.name, place: r.place || '', note: r.note || '', line2: r.line2 || '', cat: r.cat || 'other', amt: r.amt == null ? null : +r.amt, cur: r.cur || CUR0().local, who: r.who || 'S', f: r.f == null ? 50 : +r.f, paid: r.paid || '', ref: r.ref || '', url: r.url || '' }; }
+  function CUR0() { return T.currency || { local: 'AUD' }; }
+  function contentApply(c) {
+    if (!c) return;
+    (c.content || []).forEach(function (r) {
+      if (r.key === 'id' || r.key === 'start' || r.key === 'end') return;
+      var v = r.value;
+      if (v && typeof v === 'object' && !Array.isArray(v) && T[r.key] && typeof T[r.key] === 'object' && !Array.isArray(T[r.key])) T[r.key] = Object.assign({}, T[r.key], v);
+      else T[r.key] = v;
+    });
+    var s = T.start.split('-'), s0 = Date.UTC(+s[0], +s[1] - 1, +s[2]);
+    (c.days || []).forEach(function (r) {
+      var p = String(r.day_date).split('-'), i = Math.round((Date.UTC(+p[0], +p[1] - 1, +p[2]) - s0) / 86400000);
+      if (i >= 0 && T.days && i < T.days.length + 1 && r.data) T.days[i] = r.data;
+    });
+    if (c.exp) EXP = c.exp.map(expFromDb);
+    T.todo = []; // shared notes replace the built-in to-do list
+  }
+  function contentFetch() {
+    var t = encodeURIComponent(T.id);
+    return Promise.all([
+      sbApi('trip_content?select=key,value&trip=eq.' + t),
+      sbApi('days?select=day_date,data&trip=eq.' + t + '&order=day_date.asc'),
+      sbApi('expenses?select=' + EXP_SELECT + '&trip=eq.' + t + '&order=sort.asc,id.asc')
+    ]).then(function (a) { if (!Array.isArray(a[0]) || !Array.isArray(a[1]) || !Array.isArray(a[2])) throw new Error('bad'); return { content: a[0], days: a[1], exp: a[2] }; });
+  }
+  function cachedContent() { try { return JSON.parse(read('content-cache') || 'null'); } catch (e) { return null; } }
+  function updateBar() {
+    if ($('updBar')) return;
+    var b = document.createElement('button'); b.id = 'updBar'; b.type = 'button';
+    b.textContent = 'Trip info updated · tap to refresh';
+    b.style.cssText = 'position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;border:0;border-radius:999px;padding:10px 16px;font:600 14px system-ui,sans-serif;background:#1f6feb;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25)';
+    b.addEventListener('click', function () { location.reload(); });
+    document.body.appendChild(b);
+  }
+  function bootData() {
+    if (!SB_LIVE) return Promise.resolve();
+    var cache = cachedContent();
+    var fresh = contentFetch().then(function (c) {
+      var s = JSON.stringify(c), old = read('content-cache');
+      store('content-cache', s);
+      return { c: c, changed: old !== s };
+    });
+    if (cache) {
+      contentApply(cache);
+      fresh.then(function (r) { if (r.changed) updateBar(); }).catch(function () {});
+      return Promise.resolve();
+    }
+    // First open on this phone: wait briefly for the shared copy, else use the built-in one.
+    return new Promise(function (res) {
+      var done = false, to = setTimeout(function () { done = true; res(); }, 5000);
+      fresh.then(function (r) { if (!done) { done = true; clearTimeout(to); contentApply(r.c); res(); } else updateBar(); },
+                 function () { if (!done) { done = true; clearTimeout(to); res(); } });
+    });
+  }
   function parseDate(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1801,11 +1887,12 @@ window.TRIP = {
     var host = document.getElementById('psub-notes'); if (host) host.innerHTML = importantCard();
   }
   function importantCard() {
-    var store = ideaStore(), li = [];
+    var li = [], canEd = canEditNotes();
     (T.todo || []).forEach(function (td) { li.push(noteLi({ text: td.title, detail: td.note, prio: td.open ? 'high' : 'normal' }, false)); });
-    store.notes.forEach(function (x) { li.push(noteLi(x, true)); });  // swipe enabled
+    notesList().forEach(function (x) { li.push(noteLi(x, canEd)); });
     var body = li.length ? '<ul class="items">' + li.join('') + '</ul>' : '<p class="emptymsg">Nothing yet. Tap + to add a note for everyone.</p>';
-    return '<div class="card"><div class="cardhead"><h2>Notes</h2><button class="addbtn small" data-addidea="notes" aria-label="Add a note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>' + body + '</div>';
+    var lock = (SB_LIVE && !editPass()) ? '<p class="foot">Showing everyone’s notes. To add or edit, unlock on the Travellers tab (same passcode).</p>' : '';
+    return '<div class="card"><div class="cardhead"><h2>Notes</h2><button class="addbtn small" data-addidea="notes" aria-label="Add a note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>' + body + lock + '</div>';
   }
 
 
@@ -1866,9 +1953,9 @@ window.TRIP = {
     if (M.embedUrl) {
       h += '<div class="card"><h2>' + esc(M.imageTitle || 'The Route') + '</h2>' +
         '<iframe class="maproute" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="' + esc(M.embedUrl) + '"></iframe>' +
-        '<p class="foot">Live Google Map · pan and zoom, or tap a pin for details.</p></div>';
+        (M.loopUrl ? '<a class="btn wide" target="_blank" rel="noopener" href="' + esc(M.loopUrl) + '">Open in the Google Maps app</a>' : '') +
+        '<p class="foot">Pan and zoom above, or open the full route in your Google Maps app.</p></div>';
     }
-    if (M.loopUrl) h += '<div class="card"><h2>' + esc(M.loopTitle || 'The Whole Route') + '</h2>' + (M.loopNote ? '<p class="linknote">' + esc(M.loopNote) + '</p>' : '') + '<a class="btn wide" target="_blank" rel="noopener" href="' + esc(M.loopUrl) + '">Open the full route in Google Maps</a></div>';
     if (M.stays && M.stays.length) h += '<div class="card"><h2>Our Stays</h2>' + M.stays.map(function (s) {
       var emb = embedFor(s.url);
       return '<div class="stayline"><span class="where">' + esc(s.name) + '<span>' + esc(s.note || '') + '</span></span><span class="right"><span class="when">' + esc(s.when || '') + '</span>' + (emb ? '<button type="button" class="btn mapbtn" data-open="Map" data-embed="' + esc(emb) + '" onclick="mapToggle(event,this)">Map</button>' : '') + '<a class="btn" target="_blank" rel="noopener" href="' + esc(s.url) + '">Pin</a></span></div>' + (emb ? '<div class="mapslot" hidden></div>' : '');
@@ -1910,7 +1997,7 @@ window.TRIP = {
     var segPaid = FAM.map(function (f, i) { return '<button data-v="' + f.code + '" aria-pressed="' + (i === 0 ? 'true' : 'false') + '">' + esc(f.name) + '</button>'; }).join('');
     var nb = (C.notBooked || []).map(function (n) { return '<div class="stayline"><span class="where">' + esc(n.title) + '<span>' + esc(n.note) + '</span></span><span class="when">' + whoPill(n.who) + '</span></div>'; }).join('');
     return '<div class="panel" id="panel-money">' +
-      '<div class="card"><div class="cardhead"><h2>Booked and Paid</h2><button class="addbtn" id="costAdd" aria-label="Add an item" title="Add an item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>' +
+      '<div class="card"><div class="cardhead"><h2>Spending</h2><button class="addbtn" id="costAdd" aria-label="Add an item" title="Add an item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>' +
       '<div class="filters" id="costFilters" role="group" aria-label="Filter by category">' + chips + '</div><div id="costList"></div><div class="totals" id="costTotals"></div><p class="foot" id="costNote"></p></div>' +
       '<dialog class="sheet" id="costDialog" aria-labelledby="ceTitle"><div class="sheethead"><h2 id="ceTitle">Add an Item</h2><button class="sheetclose" id="ceClose" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
       '<div class="form"><label class="fl">Item<input id="ceName" type="text" maxlength="60" placeholder="e.g. Fuel — Ravensthorpe"></label>' +
@@ -1951,10 +2038,10 @@ window.TRIP = {
   }
   function notesCard(day) {
     // Today shows only what's relevant now: today's own notes + open gaps + any user notes. Read-only; full list + add lives on Plan > Important.
-    var store = ideaStore(), li = [];
+    var li = [];
     if (day && day.notes) day.notes.forEach(function (n) { li.push(noteLi({ text: n, prio: 'normal' }, false)); });
     (T.todo || []).forEach(function (td) { if (td.open) li.push(noteLi({ text: td.title, detail: td.note, prio: 'high' }, false)); });
-    store.notes.forEach(function (x) { li.push(noteLi(x, false)); });
+    notesList().forEach(function (x) { li.push(noteLi(x, false)); });
     if (!li.length) return '';
     return '<div class="card"><div class="cardhead"><h2>Notes</h2></div><ul class="items">' + li.join('') + '</ul><button class="linkbtn" data-screen="plan" data-planto="notes">See all notes \u2192</button></div>';
   }
@@ -2019,7 +2106,7 @@ window.TRIP = {
     if (ti < 0 || ti >= (T.days || []).length) ti = 0;
     document.getElementById('ideaDay').innerHTML = dayOptions(ti);
     if (editId) {
-      var st = ideaStore(); var ex = st.notes.filter(function (n) { return n.id === editId; })[0];
+      var ex = notesList().filter(function (n) { return n.id === editId; })[0];
       if (ex) {
         document.getElementById('ideaText').value = ex.text || '';
         document.getElementById('ideaNote').value = ex.detail || '';
@@ -2159,6 +2246,20 @@ window.TRIP = {
         var kind = document.getElementById('ideaKind').value;
         var text = document.getElementById('ideaText').value.trim();
         if (!text) { document.getElementById('ideaMsg').textContent = 'Type something first.'; return; }
+        if (kind === 'notes' && SB_LIVE) {
+          if (!editPass()) { document.getElementById('ideaMsg').textContent = 'To add or edit, unlock on the Travellers tab first (same passcode).'; return; }
+          var nDetail = document.getElementById('ideaNote').value.trim();
+          var nDate = document.getElementById('ideaDate').value || null;
+          var nPrio = window.__ideaPrio || 'normal';
+          var nAuthor = ''; try { nAuthor = localStorage.getItem(KEY('myname')) || ''; } catch (er0) {}
+          var nPay = { p_passcode: editPass(), p_trip: T.id, p_title: text, p_detail: nDetail, p_note_date: nDate, p_importance: nPrio, p_author: nAuthor };
+          var nEid = window.__editNoteId; window.__editNoteId = null;
+          document.getElementById('ideaMsg').textContent = 'Saving…';
+          (nEid ? sbRpc('update_note', Object.assign({ p_id: nEid }, nPay)) : sbRpc('add_note', nPay))
+            .then(function () { closeIdeaSheet(); return notesLoad(); })
+            .catch(function (er1) { document.getElementById('ideaMsg').textContent = /passcode/i.test(er1.message) ? 'Passcode changed — unlock again on the Travellers tab.' : 'Couldn’t save: ' + er1.message; });
+          return;
+        }
         var store = ideaStore();
         if (window.__editNoteId) {
           store.notes = store.notes.map(function (n) { return n.id === window.__editNoteId ? Object.assign(n, { text: text, detail: document.getElementById('ideaNote').value.trim(), date: document.getElementById('ideaDate').value || '', prio: window.__ideaPrio || 'normal' }) : n; });
@@ -2178,6 +2279,13 @@ window.TRIP = {
       var del = e.target.closest && e.target.closest('[data-delidea]');
       if (del) {
         var parts = del.getAttribute('data-delidea').split(':'), kind2 = parts[0], id = +parts[1];
+        if (kind2 === 'notes' && SB_LIVE) {
+          if (!editPass()) { toastMsg('Unlock on the Travellers tab to delete a note.'); return; }
+          sbRpc('delete_note', { p_passcode: editPass(), p_trip: T.id, p_id: id })
+            .then(function () { return notesLoad(); })
+            .catch(function (e2) { toastMsg(/passcode/i.test(e2.message) ? 'Passcode changed — unlock again.' : 'Couldn’t delete the note.'); });
+          return;
+        }
         var store2 = ideaStore(); store2[kind2] = store2[kind2].filter(function (x) { return x.id !== id; }); ideaSave(store2); renderToday(); refreshPlanNotes();
         return;
       }
@@ -2472,8 +2580,21 @@ window.TRIP = {
     var C = T.costs || {}, cats = {}; (C.categories || [['flight', 'Flight'], ['stay', 'Accommodation'], ['car', 'Car Hire'], ['transport', 'Transport'], ['food', 'Food & Groceries'], ['shop', 'Shopping'], ['other', 'Others']]).forEach(function (c) { cats[c[0]] = c[1]; });
     var A = FAM[0].code, B = TWO ? FAM[1].code : null;
     var state, filter = 'all', editing = null, who = TWO ? 'S' : A, paid = A;
-    function load() { try { state = JSON.parse(read('costs') || 'null'); } catch (e) { state = null; } if (!state || !state.items) state = { items: (C.seed || []).map(function (x) { return Object.assign({}, x); }), rate: CUR.rate }; }
-    function save() { store('costs', JSON.stringify(state)); }
+    function savedRate() { var r = parseFloat(read('costs-rate')); return r > 0 ? r : CUR.rate; }
+    function load() {
+      if (SB_LIVE) { state = { items: (EXP || (C.seed || []).map(function (x) { return Object.assign({}, x); })), rate: savedRate() }; return; }
+      try { state = JSON.parse(read('costs') || 'null'); } catch (e) { state = null; } if (!state || !state.items) state = { items: (C.seed || []).map(function (x) { return Object.assign({}, x); }), rate: CUR.rate };
+    }
+    function save() { store('costs-rate', String(state.rate)); if (!SB_LIVE) store('costs', JSON.stringify(state)); }
+    function dbReload() {
+      return sbApi('expenses?select=' + EXP_SELECT + '&trip=eq.' + encodeURIComponent(T.id) + '&order=sort.asc,id.asc').then(function (rs) {
+        if (!Array.isArray(rs)) return;
+        EXP = rs.map(expFromDb); state.items = EXP; draw();
+        var cc = cachedContent(); if (cc) { cc.exp = rs; store('content-cache', JSON.stringify(cc)); }
+      }).catch(function () {});
+    }
+    function needPass() { if (editPass()) return false; $('ceMsg').className = 'tvmsg'; $('ceMsg').textContent = 'To add or change spending, unlock on the Trip \u2192 Travellers tab first (same passcode).'; return true; }
+    function dbErr(e) { $('ceMsg').className = 'tvmsg'; $('ceMsg').textContent = /passcode/i.test(e && e.message || '') ? 'Wrong passcode \u2014 unlock again on the Travellers tab.' : 'Could not save. Check your connection and try again.'; }
     function sgd(x) { return x.amt == null ? null : (x.cur === CUR.local ? x.amt * state.rate : x.amt); }
     function shares(x) { var v = sgd(x); if (v == null) return null; var f = x.who === A ? 100 : x.who === B ? 0 : x.f; return { A: v * f / 100, B: v * (100 - f) / 100, f: f }; }
     function whoTxt(x) { return x.who === 'S' ? 'Shared ' + x.f + '/' + (100 - x.f) : (famByCode[x.who] || {}).name || x.who; }
@@ -2541,7 +2662,7 @@ window.TRIP = {
       $('costTotals').innerHTML = (TWO ? (sharedN ? '<div class="totrow"><span>Shared items (' + sharedN + ')</span><span class="totval">' + money(sharedT, CUR.home) + '</span></div>' : '') +
         '<div class="totrow"><span>' + esc(FAM[0].name) + ' total</span><span class="totval">' + money(tA, CUR.home) + '</span></div><div class="totrow"><span>' + esc(FAM[1].name) + ' total</span><span class="totval">' + money(tB, CUR.home) + '</span></div>' : '') +
         '<div class="totrow grand"><span>' + (filter === 'all' ? 'All items' : esc(cats[filter])) + ' (' + items.length + ')</span><span class="totval">' + money(tot, CUR.home) + '</span></div>';
-      $('costNote').textContent = (missing ? missing + (missing === 1 ? ' item has' : ' items have') + ' no cost yet and ' + (missing === 1 ? 'is' : 'are') + ' not in the totals. ' : '') + 'Tap an item to edit it' + (TWO ? ' or change its split' : '') + '. Totals in ' + CUR.home + '. Saved on this phone only until shared sync is switched on.';
+      $('costNote').textContent = (missing ? missing + (missing === 1 ? ' item has' : ' items have') + ' no cost yet and ' + (missing === 1 ? 'is' : 'are') + ' not in the totals. ' : '') + 'Tap an item to edit it' + (TWO ? ' or change its split' : '') + '. Totals in ' + CUR.home + '. ' + (SB_LIVE ? 'Shared with everyone on the trip' + (editPass() ? '.' : ' \u2014 unlock on the Travellers tab to make changes.') : 'Saved on this phone only.');
       var all = 0; state.items.forEach(function (x) { var v = sgd(x); if (v != null) all += v; });
       if ($('costFact')) $('costFact').textContent = money(all, CUR.home);
       var cars = state.items.filter(function (x) { return x.cat === 'car'; }), carT = 0; cars.forEach(function (x) { var v = sgd(x); if (v != null) carT += v; });
@@ -2597,8 +2718,19 @@ window.TRIP = {
       if (!name) { $('ceMsg').className = 'tvmsg'; $('ceMsg').textContent = 'Give the item a name.'; return; }
       if (raw !== '' && !(amt >= 0)) { $('ceMsg').className = 'tvmsg'; $('ceMsg').textContent = 'Amount must be a number.'; return; }
       var rec = { name: name, amt: amt, cur: $('ceCur').value, cat: $('ceCat').value, who: who, f: who === 'S' ? +$('ceRange').value : (who === A ? 100 : 0), paid: paid };
+      var wasEdit = !!editing;
+      if (SB_LIVE) {
+        if (needPass()) return;
+        var args = { p_passcode: editPass(), p_trip: T.id, p_name: rec.name, p_cat: rec.cat, p_amt: rec.amt, p_cur: rec.cur, p_who: rec.who, p_f: rec.f, p_paid: rec.paid };
+        if (wasEdit) args.p_id = +editing;
+        $('ceSave').disabled = true;
+        sbRpc(wasEdit ? 'update_expense' : 'add_expense', args).then(function () { return dbReload(); })
+          .then(function () { $('ceSave').disabled = false; closeSheet(); resetForm(); toast(wasEdit ? 'Saved for everyone' : name + ' added for everyone'); })
+          .catch(function (e) { $('ceSave').disabled = false; dbErr(e); });
+        return;
+      }
       if (editing) state.items = state.items.map(function (x) { return x.id === editing ? Object.assign(x, rec) : x; }); else { rec.id = 'c' + Date.now(); state.items.push(rec); }
-      var wasEdit = !!editing; save(); draw(); closeSheet(); resetForm(); toast(wasEdit ? 'Saved' : name + ' added');
+      save(); draw(); closeSheet(); resetForm(); toast(wasEdit ? 'Saved' : name + ' added');
     }
     document.addEventListener('click', function (e) {
       var t = e.target, c;
@@ -2615,7 +2747,7 @@ window.TRIP = {
       if (t.closest('#costAdd')) { resetForm(); openSheet(); return; }
       if (t.closest('#ceClose') || t.id === 'costDialog') { closeSheet(); resetForm(); return; }
       if (t.id === 'ceSave') submit();
-      if (t.id === 'ceDelete' && editing) { var gone = state.items.filter(function (i) { return i.id === editing; })[0]; if (gone && confirm('Delete ' + gone.name + '?')) { state.items = state.items.filter(function (i) { return i.id !== editing; }); save(); closeSheet(); resetForm(); draw(); toast(gone.name + ' deleted'); } }
+      if (t.id === 'ceDelete' && editing) { var gone = state.items.filter(function (i) { return i.id === editing; })[0]; if (gone && SB_LIVE) { if (needPass()) return; if (confirm('Delete ' + gone.name + ' for everyone?')) { sbRpc('delete_expense', { p_passcode: editPass(), p_trip: T.id, p_id: +editing }).then(function () { return dbReload(); }).then(function () { closeSheet(); resetForm(); toast(gone.name + ' deleted'); }).catch(dbErr); } return; } if (gone && confirm('Delete ' + gone.name + '?')) { state.items = state.items.filter(function (i) { return i.id !== editing; }); save(); closeSheet(); resetForm(); draw(); toast(gone.name + ' deleted'); } }
       if (t.id === 'ceCopy') { var lines = state.items.map(function (x) { var v = sgd(x); return x.name + ' — ' + (v == null ? 'no cost yet' : money(v, CUR.home)) + (TWO ? ' (' + whoTxt(x) + ')' : ''); }); var owe = document.querySelector('#costTotals .owe'); if (owe) lines.push(owe.textContent.replace(/(\D)(\S\$)/, '$1: $2')); try { navigator.clipboard.writeText(lines.join('\n')); t.textContent = 'Copied'; setTimeout(function () { t.textContent = 'Copy summary'; }, 1500); } catch (err) {} }
     });
     $('costList').addEventListener('keydown', function (e) { var r = e.target.closest && e.target.closest('[data-cedit]'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); detail(r.getAttribute('data-cedit')); } });
@@ -2626,22 +2758,30 @@ window.TRIP = {
   }
 
   function serviceWorker() {
-    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) window.addEventListener('load', function () { navigator.serviceWorker.register('./sw.js').catch(function () {}); });
+    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) { var reg = function () { navigator.serviceWorker.register('./sw.js').catch(function () {}); }; if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg); }
   }
 
   // ---- boot
   try { var th = read('theme'); if (th === 'light' || th === 'dark') document.documentElement.setAttribute('data-theme', th); } catch (e) {}
   document.title = T.title + (T.dateLabel ? ' — ' + T.dateLabel : '');
+  var booted = false;
+  function go() {
+    if (booted) return; booted = true;
   renderShell();
   renderToday(); screens(); theme(); board(); calendar(); travellers(); costs(); serviceWorker();
-  (function fetchFX() {
+  if (SB_LIVE) { notesLoad(); document.addEventListener('click', function (e) { var s = e.target && e.target.closest && e.target.closest('[data-screen="plan"],[data-planto="notes"]'); if (s) notesLoad(); }); }
+  fetchFX();
+  }
+  function fetchFX() {
     if (location.protocol.indexOf('http') !== 0) return;
     fetch('https://open.er-api.com/v6/latest/' + CUR.local, { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (j) { if (j && j.rates && j.rates[CUR.home]) { window.__FXRATE__ = j.rates[CUR.home]; renderToday(); } })
       .catch(function () { /* keep seeded CUR.rate */ });
-  })();
+  }
+  bootData().then(go, go);
 })();
+
 
 
 
